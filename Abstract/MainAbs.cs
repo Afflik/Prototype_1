@@ -28,7 +28,7 @@ namespace Game
             _time = t;
         }
 
-        public virtual bool Timer(float t)
+        public virtual bool Timer(float t) // таймер
         {
             _time += Time.deltaTime;
             if (_time > t)

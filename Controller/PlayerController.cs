@@ -30,30 +30,30 @@ namespace Game
 
             if (Input.GetKeyDown(_roll))
             {
-                //_player.Roll();
+                _player.Roll();
             }
 
-            if (Input.GetKeyDown(_one))
+            if (Input.GetKeyDown(_one)) // первый спелл
             {
                 _player.SpellCast(_player.HurricaneSpell, 3);
             }
-            if (Input.GetKeyDown(_two))
+            if (Input.GetKeyDown(_two)) // второй спелл
             {
                 _player.SpellCast(_player.FrostJumpSpell, 2);
             }
-            if (Input.GetKeyDown(_tree))
+            if (Input.GetKeyDown(_tree)) // третий спелл
             {
                 _player.SpellCast(_player.LightingStrikeSpell, 2);
             }
-            if (Input.GetKeyDown(_four))
+            if (Input.GetKeyDown(_four)) // четвертый спелл
             {
                 _player.SpellCast(_player.RampageBuff, 10);
             }
 
-            _player.Moving(_player.Speed);
-            _player.PlayerLook();
-            _player.GroundDistance();
-            _player.Spell();
+            _player.Moving(_player.Speed); // передвижение
+            _player.PlayerLook(); // слежение за мышкой
+            _player.GroundDistance(); // проверка дистанции до земли
+            _player.Spell(); // состояние способностей
         }
     }
 }

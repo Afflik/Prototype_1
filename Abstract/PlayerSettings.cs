@@ -14,32 +14,31 @@ namespace Game
         [SerializeField]
         protected GameObject _rampageBuff;
         [SerializeField]
-        protected List<GameObject> _effects = new List<GameObject>();
+        protected List<GameObject> _effects = new List<GameObject>(); // лист различных вспомогательных эффектов
 
         [SerializeField]
-        protected float _speed = 4f;
+        protected float _speed = 4f; // скорость персонажа
 		
-        protected float _basicSpeed;
-        protected float _buffTime;
+        protected float _basicSpeed; // сохранение базовой скорости персонажа
+        protected float _buffRampageTime;  // продолжительность баффа
 
-        protected int _move = 0;
-        protected int _attackType = 0;
-        protected int _comboLeftClick = 0;
-        protected int _comboRightClick = 0;
-        
-        protected bool _isRoll;
-        protected bool _isBuffOn;
-        protected bool _isMove = true;
-        protected bool _isFreezeRot;
-        protected bool _checkGroundDist;
+        protected int _move = 0; // состояние передвижения
+        protected int _attackType = 0; // состояние атаки
+        protected int _comboLeftClick = 0; // состояние серии легких атак
+        protected int _comboRightClick = 0; // состояние серии тяжелых атак
 
-        protected GameObject _spellLast;
-        protected GameObject _spellNow;
+        protected bool _isRoll; // состояние кувырка
+        protected bool _isBuffOn; // состояние кувырка
+        protected bool _isFreezeRot; // заморока поворота
+        protected bool _checkGroundDist; // проверка дистанции до земли
 
-        protected Vector3 _distForGround;
-        protected Vector3 _defaultScale;
-        protected Vector3 _scaleUpStep;
-        protected Vector3 _buffScale;
+        protected GameObject _spellLast; // последний используемый каст
+        protected GameObject _spellNow; // текущий каст
+
+        protected Vector3 _distForGround; // дистанция до земли
+        protected Vector3 _defaultScale; // базовый размер персонажа
+        protected Vector3 _scaleUpStep; // шаг изменения размера персонажа
+        protected Vector3 _buffScale; // измененный размер персонажа
 
         public float Speed { get => _speed; set => _speed = value; }
 
@@ -48,7 +47,7 @@ namespace Game
         public GameObject LightingStrikeSpell { get => _lightingStrikeSpell; set => _lightingStrikeSpell = value; }
         public GameObject RampageBuff { get => _rampageBuff; set => _rampageBuff = value; }
 
-        protected List<GameObject> _spellBook = new List<GameObject>();
+        protected List<GameObject> _spellBook = new List<GameObject>(); // коллекция способностей
 
         public void Awake()
         {
@@ -58,7 +57,6 @@ namespace Game
             _scaleUpStep = new Vector3(0.05f, 0.05f, 0.05f);
             _distForGround = transform.TransformDirection(Vector3.down);
             _basicSpeed = _speed;
-            _isFreezeRot = false;
             
             _spellBook.Add(null);
             _spellBook.Add(_hurricaneSpell);
