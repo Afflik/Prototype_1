@@ -4,9 +4,10 @@ using UnityEngine;
 
 namespace Game
 {
-    public class PlayerController: IOnUpdate
+    public class PlayerController: IOnUpdate, Init
     {
         private PlayerModel _player = Object.FindObjectOfType<PlayerModel>();
+        private SpellManager.Spell[] _spells;
 
         private KeyCode _roll = KeyCode.LeftShift;
         private KeyCode _one = KeyCode.Alpha1;
@@ -16,6 +17,11 @@ namespace Game
 
         private int _leftClick = 0;
         private int _rightClick = 1;
+
+        public void Init()
+        {
+            _spells = _player.SpellBook;
+        }
 
         public void OnUpdate()
         {
@@ -35,21 +41,20 @@ namespace Game
 
             if (Input.GetKeyDown(_one)) // первый спелл
             {
-                _player.SpellCast(_player.HurricaneSpell, 3);
+                _player.SpellCast(0, _spells[0].time);
             }
             if (Input.GetKeyDown(_two)) // второй спелл
             {
-                _player.SpellCast(_player.FrostJumpSpell, 2);
+                _player.SpellCast(1, _spells[1].time);
             }
             if (Input.GetKeyDown(_tree)) // третий спелл
             {
-                _player.SpellCast(_player.LightingStrikeSpell, 2);
+                _player.SpellCast(2, _spells[2].time);
             }
             if (Input.GetKeyDown(_four)) // четвертый спелл
             {
-                _player.SpellCast(_player.RampageBuff, 10);
+                _player.SpellCast(3, _spells[3].time);
             }
-
             _player.Moving(_player.Speed); // передвижение
             _player.PlayerLook(); // слежение за мышкой
             _player.GroundDistance(); // проверка дистанции до земли

@@ -10,7 +10,7 @@ namespace Game
         public void Roll() // кувырок
         {
             if (_attackType != 0) return; // если в режиме атаки, выходим
-            if (_spellNow != null) return; // если используем способности, выходим
+            if (_spellNow != 0) return; // если используем способности, выходим
 
             _isFreezeRot = false; // замораживаем повороты во время кувырка
 
@@ -109,8 +109,9 @@ namespace Game
         #region Attack
         public void Attack(int num) // атака
         {
+            
             if (_isRoll) return; // если кувыркаемся не атакуем
-            if (_spellNow != _frostJumpSpell) // атакуем если не используем способность с прыжком
+            if (_spellNow != 1) // атакуем если не используем способность с прыжком
             {
                 SpellInterrupt(); // прерывание предыдущего спела если он был
                 if (num == 1 && _attackType != 2) // легкая атака
@@ -122,6 +123,11 @@ namespace Game
                 }
                 else if (num == 2) // тяжелая атака
                 {
+                    if (_isBuffOn) SpellBook[SpellBook.Length - 1].cost = 0; // если под бафом, спобосность бесплатна
+                    else SpellBook[SpellBook.Length - 1].cost = _defaultAttackCost;
+
+                    if (_playerUi.EnBar.fillAmount * 100 < SpellBook[SpellBook.Length - 1].cost) return; // если энергии не хватает на удар, выходим
+
                     if (_comboRightClick == 1) _comboRightClick = 2;
                     _anim.SetInteger("comboRC", _comboRightClick);
                     _anim.SetInteger("attack", num);
@@ -132,11 +138,11 @@ namespace Game
         protected void AttackEffect() // эфекты атак
         {
             GameObject _attEff = null;
-            if (_spellNow == _frostJumpSpell) // если используем спел с прыжком, создаем под ногами лед на заданное время
+            if (_spellNow == 1) // если используем спел с прыжком, создаем под ногами лед на заданное время
             {
-                _attEff = Instantiate(_spellBook[_spellBook.IndexOf(_frostJumpSpell)],
-                                      _spellBook[_spellBook.IndexOf(_frostJumpSpell)].transform.position,
-                                      _spellBook[_spellBook.IndexOf(_frostJumpSpell)].transform.rotation);
+                _attEff = Instantiate(SpellBook[1].spell,
+                                      SpellBook[1].spell.transform.position,
+                                      SpellBook[1].spell.transform.rotation);
                 Destroy(_attEff, 2.5f);
             }
             else if (_attackType == 2 || _isBuffOn) // если используем тяжелые атаки или находимся под бафом, создаем огненные волны при ударах
@@ -152,6 +158,10 @@ namespace Game
             if (_isBuffOn && _attackType == 1) // если легкая атака под баффом, бьем усиленно 
             {
                 AttackEffect();
+            }
+            else if (_attackType == 2) // тратим энергию на удар
+            {
+                _playerUi.ChangeValueEnergy(SpellBook[SpellBook.Length - 1].cost);
             }
         }
         protected void AttackEnd() // окончание атаки
@@ -173,80 +183,84 @@ namespace Game
         #region Spells
         public void Spell() // состояние спеллов
         {
-            if (_spellNow == _hurricaneSpell)
+            if (_spellNow == 0)
             {
                 _speed = 0;
                 _isFreezeRot = false;
                 _trfm.position += _trfm.forward * (7 * Time.deltaTime);
-                _spellBook[_spellBook.IndexOf(_hurricaneSpell)].SetActive(true);
+                SpellBook[0].spell.SetActive(true);
             }
-            if (_spellNow == _frostJumpSpell || _spellNow == _lightingStrikeSpell)
+            if (_spellNow == 1 || _spellNow == 2)
             {
                 _isFreezeRot = true;
                 _speed = 0;
             }
             if (_isBuffOn) // если игрок под бафом
             {
-                if (Timer(_buffRampageTime)) Buff(); // окончание бафа через заданное время в таймере
+                if (Timer(SpellBook[3].time)) Buff(); // окончание бафа через заданное время в таймере
                 if (_trfm.localScale.y < _buffScale.y) // увеличение в размерах игрока
                 {
                     _trfm.localScale += _scaleUpStep;
                 }
-                _spellBook[4].SetActive(true); // включение эффекта бафа
-                if (_spellNow != _hurricaneSpell) _speed = 5;
+                SpellBook[3].spell.SetActive(true); // включение эффекта бафа
+                if (_spellNow != 0) _speed = 5;
             }
             if (!_isBuffOn)  // если игрок не под бафом
             {
                 if (_trfm.localScale.y > _defaultScale.y) // уменьшается игрок до обычных размеров
                 {
                     _trfm.localScale -= _scaleUpStep;
-                    _spellBook[4].SetActive(false);
+                    SpellBook[3].spell.SetActive(false);
                 }
             }
         }
-        public void SpellCast(GameObject spell, float time) // каст спелла
+        public void SpellCast(int id, float time) // каст спелла
         {
-            if (_isRoll || _spellLast == _rampageBuff) return; // если в кувырке или предыдущий спел был бафом, выходми
-            if (_spellLast != _frostJumpSpell && _attackType == 0) // если предыдущий спел был прыжок и не проводится атака, кастуем спел
+            if (SpellBook[id].status) return;
+            if (_isRoll || _spellLast == 3) return; // если в кувырке или предыдущий спел был бафом, выходми
+            if (_spellLast != 1 && _attackType == 0) // если предыдущий спел был прыжок и не проводится атака, кастуем спел
             {
-                if (spell == _rampageBuff && !_isBuffOn) // если спел это баф и игрок еще не бафнут
+                if (_playerUi.EnBar.fillAmount * 100 < SpellBook[id].cost) return;
+                _playerUi.ChangeValueEnergy(SpellBook[id].cost);
+                if (id == 3 && !_isBuffOn) // если спел это баф и игрок еще не бафнут
                 {
+                    _spellUi.Cooldown(SpellBook[id]);
                     SpellInterrupt(); // прерывыем предыдущий спел если нужно
-                    _buffRampageTime = time; // задаем время бафу
                     _isFreezeRot = true;
-                    _spellLast = spell;
-                    _spellNow = spell;
-                    _anim.SetInteger("spell", _spellBook.IndexOf(spell));
+                    _spellLast = id;
+                    _spellNow = id;
+                    _anim.SetInteger("spell", id+1);
                     return; // выходим после получения бафа
                 }
-                if (_spellLast != _rampageBuff) SpellInterrupt(); // если предыдущий спел не баф, прерываем его
+                if (_spellLast != 3) SpellInterrupt(); // если предыдущий спел не баф, прерываем его
 
-                if (spell == _hurricaneSpell)
+                if (id == 0)
                 {
-                    spell.SetActive(true);
+                    SpellBook[id].spell.SetActive(true);
                 }
 
-                if (spell != _frostJumpSpell) // заканчиваем способность через заданное время если это не прыжок
+                if (id != 1) // заканчиваем способность через заданное время если это не прыжок
                 {
                     Invoke("SpellEnd", time);
                 }
-                _spellNow = _spellLast = spell;
-                _anim.SetInteger("spell", _spellBook.IndexOf(spell)); //активруем анимацию текущего спела
+                _spellUi.Cooldown(SpellBook[id]);
+                _spellNow = _spellLast = id;
+                _anim.SetInteger("spell", id+1); //активруем анимацию текущего спела
             }
         }
         public void SpellInterrupt() // прерывание предыдущей способности
         {
             CancelInvoke(); // прерываем окончание прошлой способности
-            if (_spellLast != _frostJumpSpell) // если прердыдущая способность не прыжок, отменяем заморозку
+            if (_spellLast != 1) // если прердыдущая способность не прыжок, отменяем заморозку
             {
                 _isFreezeRot = false;
                 _anim.SetBool("spellCasting", false);
             }
-            if (_spellNow != null)
+            if (_spellNow != -1)
             {
-                _spellNow = null;
+                _spellNow = -1;
                 _anim.SetInteger("spell", 0);
-                if (_spellLast != null) _spellBook[_spellBook.IndexOf(_spellLast)].SetActive(false); // прерываем эффект прошлого заклинания
+                if (_spellLast != -1) SpellBook[_spellLast].spell.SetActive(false); // прерываем эффект прошлого заклинания
             }
         }
         public void SpellEnd() // окончание способности
@@ -255,20 +269,20 @@ namespace Game
             _isFreezeRot = false;
             _anim.SetBool("groundSoon", false);
             _anim.SetBool("spellCasting", false);
-            if (_spellLast == _frostJumpSpell) _spellLast = null;
-            if (_spellLast == _rampageBuff) _spellLast = null;
-            if (_spellNow != null)
+            if (_spellLast == 1) _spellLast = 0;
+            if (_spellLast == 3) _spellLast = 0;
+            if (_spellNow != -1)
             {
-                _spellBook[_spellBook.IndexOf(_spellNow)].SetActive(false);
-                _spellNow = null;
+                SpellBook[_spellNow].spell.SetActive(false);
+                _spellNow = -1;
             }
             _anim.SetInteger("spell", 0);
         }
         public void Casting() // каст способности в нужный момент
         {
-            if (_spellNow == _lightingStrikeSpell) // если способность с ударами молний, то выпускаем молнии во врагов через заданное время
+            if (_spellNow == 2) // если способность с ударами молний, то выпускаем молнии во врагов через заданное время
             {
-                _spellBook[_spellBook.IndexOf(_lightingStrikeSpell)].SetActive(true);
+                SpellBook[2].spell.SetActive(true);
                 Invoke("Lightings", 1);
             }
             _anim.SetBool("spellCasting", true);
@@ -285,7 +299,7 @@ namespace Game
 
         private void Lightings() // пускание молний
         {
-            if (_spellNow != _lightingStrikeSpell) return; // если способность не молнии, выходим
+            if (_spellNow != 2) return; // если способность не молнии, выходим
             Collider[] hitColliders = Physics.OverlapBox(gameObject.transform.position, transform.localScale * 10, Quaternion.identity, LayerMask.GetMask("Enemy")); // Делаем оверлап зону в которой пускаем молнии во всех найденных врагов
             for (int i = 0; i < hitColliders.Length; i++) // проходимся по врагам
             {
