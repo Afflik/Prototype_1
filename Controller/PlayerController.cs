@@ -4,12 +4,13 @@ using UnityEngine;
 
 namespace Game
 {
-    public class PlayerController: IOnUpdate, Init
+    public class PlayerController: IOnUpdate
     {
         private PlayerModel _player = Object.FindObjectOfType<PlayerModel>();
         private SpellManager.Spell[] _spells;
 
-        private KeyCode _roll = KeyCode.LeftShift;
+        private KeyCode _potion = KeyCode.Q;
+        private KeyCode _lockLook = KeyCode.LeftShift;
         private KeyCode _one = KeyCode.Alpha1;
         private KeyCode _two = KeyCode.Alpha2;
         private KeyCode _tree = KeyCode.Alpha3;
@@ -27,33 +28,42 @@ namespace Game
         {
             if (Input.GetMouseButtonDown(_leftClick))
             {
-                _player.Attack(1);
+                _player.MainAttack(1);
             }
             if (Input.GetMouseButtonDown(_rightClick))
             {
-                _player.Attack(2);
+                _player.MainAttack(2);
             }
 
-            if (Input.GetKeyDown(_roll))
+            if (Input.GetKeyDown(_lockLook))
             {
-                _player.Roll();
+                _player.LockLook(true);
+            }
+            if (Input.GetKeyUp(_lockLook))
+            {
+                _player.LockLook(false);
+            }
+
+            if (Input.GetKeyDown(_potion)) // первый спелл
+            {
+                _player.UsePotion();
             }
 
             if (Input.GetKeyDown(_one)) // первый спелл
             {
-                _player.SpellCast(0, _spells[0].time);
+                _player.SpellCast(0);
             }
             if (Input.GetKeyDown(_two)) // второй спелл
             {
-                _player.SpellCast(1, _spells[1].time);
+                _player.SpellCast(1);
             }
             if (Input.GetKeyDown(_tree)) // третий спелл
             {
-                _player.SpellCast(2, _spells[2].time);
+                _player.SpellCast(2);
             }
             if (Input.GetKeyDown(_four)) // четвертый спелл
             {
-                _player.SpellCast(3, _spells[3].time);
+                _player.SpellCast(3);
             }
             _player.Moving(_player.Speed); // передвижение
             _player.PlayerLook(); // слежение за мышкой

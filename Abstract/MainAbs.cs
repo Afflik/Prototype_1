@@ -28,6 +28,20 @@ namespace Game
             _time = t;
         }
 
+        public virtual bool Timer() // таймер
+        {
+            _time -= Time.deltaTime;
+            if (_time <= 0)
+            {
+                _time = 0;
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
         public virtual bool Timer(float t) // таймер
         {
             _time += Time.deltaTime;

@@ -1,15 +1,16 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
-namespace Game
+namespace Game 
 {
     public class PlayerModel : PlayerSettings
     {
         #region Control
         public void Roll() // кувырок
         {
-            if (_attackType != 0) return; // если в режиме атаки, выходим
+            if (AttackType != 0) return; // если в режиме атаки, выходим
             if (_spellNow != 0) return; // если используем способности, выходим
 
             _isFreezeRot = false; // замораживаем повороты во время кувырка
@@ -32,9 +33,33 @@ namespace Game
             _anim.SetInteger("roll", 0);
             _isRoll = false;
         }
+        public void UsePotion() // используем активную банку если она есть
+        {
+            if (ActivePotion == 0 && Potion[0] != 0) 
+            {
+                HealthPotion(ActivePotion, Item[ActivePotion].feature1);
+            }
+            else if (ActivePotion == 1 && Potion[1] != 0)
+            {
+                EnergyPotion(ActivePotion, Item[ActivePotion].feature1, Item[ActivePotion].feature2, Item[ActivePotion].feature3);
+            }
+            else if (ActivePotion == 2 && Potion[2] != 0)
+            {
+                PowerPotion(ActivePotion, Item[ActivePotion].feature1, Item[ActivePotion].feature3);
+            }
+        }
+        public void UsePotion(int i)
+        {
+            ActivePotion = i - 1;
+            UsePotion();
+        }
+        public void LockLook(bool _look) // перестать следить за курсором
+        {
+            _lockLook = _look;
+        }
         public void Moving(float speed) // передвижение
         {
-            if (_attackType != 0 || _isFreezeRot || _isRoll) return; // если атакую, не могу поворачиваться или кувыркаюсь, выхожу
+            if (AttackType != 0 || _isFreezeRot || _isRoll) return; // если атакую, не могу поворачиваться или кувыркаюсь, выхожу
 
             if (Input.GetAxis("Vertical") >= 0.2f) // вперед
             {
@@ -59,10 +84,8 @@ namespace Game
         }
         public void PlayerLook() // слежение за мышкой если поворот не заморожен
         {
-            if (!_isFreezeRot)
-            {
-                PlayerLook(_trfm, _camera.ScreenPointToRay(Input.mousePosition));
-            }
+            if (_isFreezeRot || _lockLook) return;
+            PlayerLook(_trfm, _camera.ScreenPointToRay(Input.mousePosition));
         }
         public void GroundDistance() //проверяем есть ли под ногами пол
         {
@@ -107,19 +130,24 @@ namespace Game
         #endregion
 
         #region Attack
-        public void Attack(int num) // атака
+        public void MainAttack(int num) // атака
         {
-            
+            if (EventSystem.current.IsPointerOverGameObject()) return;
+            Attack(num);
+        }
+        protected void Attack(int num) // атака
+        {
             if (_isRoll) return; // если кувыркаемся не атакуем
             if (_spellNow != 1) // атакуем если не используем способность с прыжком
             {
+                _speed = _basicSpeed;
                 SpellInterrupt(); // прерывание предыдущего спела если он был
-                if (num == 1 && _attackType != 2) // легкая атака
+                if (num == 1 && AttackType != 2) // легкая атака
                 {
                     if (_comboLeftClick == 1) _comboLeftClick = 2;
                     _anim.SetInteger("comboLC", _comboLeftClick);
                     _anim.SetInteger("attack", num);
-                    _attackType = num;
+                    AttackType = num;
                 }
                 else if (num == 2) // тяжелая атака
                 {
@@ -131,7 +159,7 @@ namespace Game
                     if (_comboRightClick == 1) _comboRightClick = 2;
                     _anim.SetInteger("comboRC", _comboRightClick);
                     _anim.SetInteger("attack", num);
-                    _attackType = num;
+                    AttackType = num;
                 }
             }
         }
@@ -145,7 +173,7 @@ namespace Game
                                       SpellBook[1].spell.transform.rotation);
                 Destroy(_attEff, 2.5f);
             }
-            else if (_attackType == 2 || _isBuffOn) // если используем тяжелые атаки или находимся под бафом, создаем огненные волны при ударах
+            else if (AttackType == 2 || _isBuffOn) // если используем тяжелые атаки или находимся под бафом, создаем огненные волны при ударах
             {
                 _attEff = Instantiate(_effects[0], _effects[0].transform.position, _effects[0].transform.rotation, _effects[0].transform.parent);
                 _attEff.SetActive(true);
@@ -155,19 +183,19 @@ namespace Game
         }
         protected void AttackStart() // начало атаки
         {
-            if (_isBuffOn && _attackType == 1) // если легкая атака под баффом, бьем усиленно 
+            if (_isBuffOn && AttackType == 1) // если легкая атака под баффом, бьем усиленно 
             {
                 AttackEffect();
             }
-            else if (_attackType == 2) // тратим энергию на удар
+            else if (AttackType == 2) // тратим энергию на удар
             {
                 _playerUi.ChangeValueEnergy(SpellBook[SpellBook.Length - 1].cost);
             }
         }
         protected void AttackEnd() // окончание атаки
         {
-            _attackType = 0;
-            _anim.SetInteger("attack", _attackType);
+            AttackType = 0;
+            _anim.SetInteger("attack", AttackType);
             _comboLeftClick = _comboRightClick = 0;
             _anim.SetInteger("comboLC", _comboLeftClick);
             _anim.SetInteger("comboRC", _comboRightClick);
@@ -214,17 +242,17 @@ namespace Game
                 }
             }
         }
-        public void SpellCast(int id, float time) // каст спелла
+        public void SpellCast(int id) // каст спелла
         {
             if (SpellBook[id].status) return;
             if (_isRoll || _spellLast == 3) return; // если в кувырке или предыдущий спел был бафом, выходми
-            if (_spellLast != 1 && _attackType == 0) // если предыдущий спел был прыжок и не проводится атака, кастуем спел
+            if (_spellLast != 1 && AttackType == 0) // если предыдущий спел был прыжок и не проводится атака, кастуем спел
             {
                 if (_playerUi.EnBar.fillAmount * 100 < SpellBook[id].cost) return;
                 _playerUi.ChangeValueEnergy(SpellBook[id].cost);
                 if (id == 3 && !_isBuffOn) // если спел это баф и игрок еще не бафнут
                 {
-                    _spellUi.Cooldown(SpellBook[id]);
+                    _barUi.Cooldown(SpellBook[id]);
                     SpellInterrupt(); // прерывыем предыдущий спел если нужно
                     _isFreezeRot = true;
                     _spellLast = id;
@@ -241,16 +269,17 @@ namespace Game
 
                 if (id != 1) // заканчиваем способность через заданное время если это не прыжок
                 {
-                    Invoke("SpellEnd", time);
+                    Invoke("SpellEnd", SpellBook[id].time);
                 }
-                _spellUi.Cooldown(SpellBook[id]);
+                _barUi.Cooldown(SpellBook[id]);
                 _spellNow = _spellLast = id;
                 _anim.SetInteger("spell", id+1); //активруем анимацию текущего спела
             }
         }
         public void SpellInterrupt() // прерывание предыдущей способности
         {
-            CancelInvoke(); // прерываем окончание прошлой способности
+            CancelInvoke("SpellEnd");  
+            if (_spellLast == 2) CancelInvoke("Lightings"); 
             if (_spellLast != 1) // если прердыдущая способность не прыжок, отменяем заморозку
             {
                 _isFreezeRot = false;
@@ -301,6 +330,7 @@ namespace Game
         {
             if (_spellNow != 2) return; // если способность не молнии, выходим
             Collider[] hitColliders = Physics.OverlapBox(gameObject.transform.position, transform.localScale * 10, Quaternion.identity, LayerMask.GetMask("Enemy")); // Делаем оверлап зону в которой пускаем молнии во всех найденных врагов
+
             for (int i = 0; i < hitColliders.Length; i++) // проходимся по врагам
             {
                 // да разок на старте способности создаю вектор на основе текущей цели и с помощью lossyScale.y / 2 бью именно до пола во врага

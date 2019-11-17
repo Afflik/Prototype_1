@@ -35,7 +35,7 @@ namespace Game
                 _img.fillAmount = 1;
                 _img.gameObject.SetActive(false);
                 _pl.SpellBook[_spell.id].status = false;
-                CancelInvoke();
+                CancelInvoke("Cooldown");
             }
         }
     }
