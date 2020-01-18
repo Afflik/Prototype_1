@@ -35,6 +35,8 @@ namespace Game
         }
         public void UsePotion() // используем активную банку если она есть
         {
+            if (Item[ActivePotion].status) return;
+            _barUi.Cooldown(Item[ActivePotion]);
             if (ActivePotion == 0 && Potion[0] != 0) 
             {
                 HealthPotion(ActivePotion, Item[ActivePotion].feature1);
@@ -79,7 +81,7 @@ namespace Game
             if (Input.GetAxis("Vertical") < 0.2f && Input.GetAxis("Vertical") > -0.2f) speed = 0; // стоим
             else if (Input.GetAxis("Vertical") != 0) // идем
             {
-                _trfm.position += Input.GetAxis("Vertical") * (_trfm.forward * Time.deltaTime * speed);
+                _trfm.position += Input.GetAxis("Vertical") * _trfm.forward * speed * Time.deltaTime;
             }
         }
         public void PlayerLook() // слежение за мышкой если поворот не заморожен
@@ -103,6 +105,32 @@ namespace Game
                 }
             }
         }
+        public void Stunned()
+        {
+            if (_isBuffOn)
+            {
+                if (IsStunned) IsStunned = false;
+                else
+                {
+                    IsStunned = true;
+                    Invoke("Stunned", 0.1f);
+                }
+                _rig.isKinematic = IsStunned;
+                return;
+            }
+
+            if (IsStunned) IsStunned = false;
+            else
+            {
+                SpellEnd();
+                IsStunned = true;
+                if (_spellLast != 3) SpellInterrupt();
+                Invoke("Stunned", 2);
+            }
+            _anim.SetBool("stun", IsStunned);
+            _rig.isKinematic = IsStunned;
+
+        }
         protected void PlayerLook(Transform trfm, Ray ray) // слежение персонажа за курсором
         {
             RaycastHit _hit;
@@ -118,11 +146,7 @@ namespace Game
             _checkGroundDist = true;
             _anim.SetBool("freeze", true);
 
-        }
-        protected void MiniCharge() // небольшой рывок вперед
-        {
-            _rig.velocity = transform.forward * 5;
-        }
+        } 
         protected void Jump() //прыжок вперед
         {
             _rig.velocity = ((transform.forward * 5) + (transform.up * 5));
@@ -225,13 +249,7 @@ namespace Game
             }
             if (_isBuffOn) // если игрок под бафом
             {
-                if (Timer(SpellBook[3].time)) Buff(); // окончание бафа через заданное время в таймере
-                if (_trfm.localScale.y < _buffScale.y) // увеличение в размерах игрока
-                {
-                    _trfm.localScale += _scaleUpStep;
-                }
-                SpellBook[3].spell.SetActive(true); // включение эффекта бафа
-                if (_spellNow != 0) _speed = 5;
+                RampageBuff();
             }
             if (!_isBuffOn)  // если игрок не под бафом
             {
@@ -278,7 +296,8 @@ namespace Game
         }
         public void SpellInterrupt() // прерывание предыдущей способности
         {
-            CancelInvoke("SpellEnd");  
+            CancelInvoke("SpellEnd");
+            _speed = _basicSpeed;
             if (_spellLast == 2) CancelInvoke("Lightings"); 
             if (_spellLast != 1) // если прердыдущая способность не прыжок, отменяем заморозку
             {
@@ -318,14 +337,19 @@ namespace Game
         }
         public void Buff() // вкл/откл бафа
         {
-            if (_isBuffOn) _isBuffOn = false;
+            if (_isBuffOn)
+            {
+                _isBuffOn = false;
+            }
             else
             {
                 _isBuffOn = true;
+                _playerUi.RestoreHealth(_maxHp * SpellBook[_spellLast].feature1 / 100, SpellBook[_spellLast].time);
+                SpellBook[SpellBook.Length - 2].dmg += +((SpellBook[SpellBook.Length - 2].dmg * SpellBook[_spellLast].feature2) / 100);
+                StartCoroutine(SpellBookDoDefault(5, SpellBook[_spellLast].time));
                 _anim.SetInteger("spell", 0);
             }
         }
-
         private void Lightings() // пускание молний
         {
             if (_spellNow != 2) return; // если способность не молнии, выходим
@@ -343,6 +367,51 @@ namespace Game
                 Destroy(lighting, 3);
             }
         }
+        private void RampageBuff()
+        {
+            if (Timer(SpellBook[3].time)) Buff(); // окончание бафа через заданное время в таймере
+            if (_trfm.localScale.y < _buffScale.y) // увеличение в размерах игрока
+            {
+                _trfm.localScale += _scaleUpStep;
+            }
+            SpellBook[3].spell.SetActive(true); // включение эффекта бафа
+            if (_spellNow != 0) _speed = 5;
+        }
         #endregion
+
+
+
+        public void Damaged(float hp, bool isStunned)
+        {
+            Hp = hp;
+            _playerUi.Health(_hp, _maxHp);
+            if (isStunned) Stunned();
+            if (Hp <= 0)
+            {
+                Hp = 0;
+                SpellInterrupt();
+                _anim.SetBool("death", true);
+                IsDeath = true;
+                return;
+            }
+        }
+
+        private void OnTriggerEnter(Collider col)
+        {
+            if (col.CompareTag("EnemyWeapon"))
+            {
+                var enemy = col.transform.root.GetComponent<IDamage>();
+                Damaged(enemy.Damage(Hp), enemy.StunDamage());
+            }
+        }
+
+        private void OnTriggerStay(Collider col)
+        {
+            if (col.CompareTag("FlameBoss"))
+            {
+                var enemy = col.transform.root.GetComponent<IDamage>();
+                Damaged(enemy.SpecialDamage(Hp), false);
+            }
+        }
     }
 }

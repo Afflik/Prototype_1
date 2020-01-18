@@ -6,7 +6,7 @@ namespace Game
     public class SpellManager: MainAbs
     {
         [Serializable]
-        public struct Spell // анкетка добавления способности
+        public struct Spell
         {
             public GameObject spell;
             public bool isBuff;

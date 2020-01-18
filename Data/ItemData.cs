@@ -6,7 +6,7 @@ namespace Game
     public class ItemData : MainAbs
     {
         [Serializable]
-        public struct Item // анкетка добавления способности
+        public struct Item
         {
             public GameObject item;
             public bool canDrop;

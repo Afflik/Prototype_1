@@ -42,6 +42,7 @@ namespace Game
         private Color _noEnergy;
 
         private List<Image> _spells = new List<Image>();
+        private List<Image> _potionsList = new List<Image>();
         private int[] _potions = new int[3];
 
         public TextMeshProUGUI PosionCount { get => _count; set => _count = value; }
@@ -65,8 +66,13 @@ namespace Game
                 spell.gameObject.AddComponent<Cooldowner>(); // добавляем кулдаун способностям
                 _spells.Add(spell.GetChild(0).GetComponent<Image>());
             };
+            foreach (Transform potion in _potionBar) // список способностей
+            {
+                potion.gameObject.AddComponent<Cooldowner>(); // добавляем кулдаун способностям
+                _potionsList.Add(potion.GetChild(2).GetComponent<Image>());
+            };
             _spells.Add(_attackBar.GetChild(1).GetChild(0).GetComponent<Image>());
-            InvokeRepeating("EnergyCost", 0, 0.1f); // проверка на хватку энергии на способности
+            InvokeRepeating(nameof(EnergyCost), 0, 0.1f); // проверка на хватку энергии на способности
         }
 
         public void AddBuff(int id,float time) // добавление иконки баффа
@@ -151,7 +157,6 @@ namespace Game
                 PosionCount.text = Potion[id].ToString(); // если банка использована и она была не последней, просто уменьшаем количество
             }
         }
-
         public void SwitchPotion(int id, Vector3 pos) // смена активной банки если активные кончились 
         {
             _pl.ActivePotion = id - 1; // смена активной банки
@@ -180,6 +185,13 @@ namespace Game
             _cdwner.StartWait(spell, _cdImg, false); // запускаем кулдаун для конкретного спела
         }
 
+        public void Cooldown(ItemData.Item item) // настраиваем кулдаун/полоску прогресса для спела
+        {
+            _cdImg = _potionBar.GetChild(item.id+1).GetChild(3).GetComponent<Image>(); // иконка кд способности
+            _cdwner = _cdImg.GetComponentInParent<Cooldowner>();
+            _cdwner.StartWait(item, _cdImg, 20); // запускаем кулдаун для банки
+        }
+
         private void EnergyCost() // если не хватает энергии, цвет иконки способности меняется
         {
             for (int i = 0; i < _spells.Count; i++)
@@ -203,33 +215,37 @@ namespace Game
             }
         }
 
+        private void PotionMenu(Transform potion)
+        {
+            if (Potion[potion.GetSiblingIndex() - 1] == 0) return; // если нажали в пустую ячейку, ничего не происходит
+            if (potion.localPosition == Vector3.zero) // если нажали по активной банке мышкой, используем ее
+            {
+                _pl.UsePotion(potion.GetSiblingIndex());
+                RefreshPotionMenu();
+            }
+            else // если нажали по банке в инвентаре
+            {
+                _lastPosPotion = potion.localPosition;
+
+                for (int i = 1; i < _potionBar.childCount; i++)
+                {
+                    if (_potionBar.GetChild(i).localPosition == Vector3.zero) // убираем активную банку в инвентарь
+                    {
+                        _potionBar.GetChild(i).localPosition = _lastPosPotion;
+                    }
+                    _potionBar.GetChild(i).gameObject.SetActive(false);
+                }
+                potion.gameObject.SetActive(true);
+                potion.localPosition = Vector3.zero; // задаем активной ту банку, на которую нажали в инвентаре
+                _pl.ActivePotion = potion.GetSiblingIndex() - 1;
+            }
+        }
+
         public void OnPointerClick(PointerEventData eventData)
         {
             if (eventData.button == PointerEventData.InputButton.Left) // если нажали левой кнопкой мышки
             {
-                Transform potion = eventData.rawPointerPress.transform.parent; // сохраняем элемент который нажали
-                if (Potion[potion.GetSiblingIndex() - 1] == 0) return; // если нажали в пустую ячейку, ничего не происходит
-                if (potion.localPosition == Vector3.zero) // если нажали по активной банке мышкой, используем ее
-                {
-                    _pl.UsePotion(potion.GetSiblingIndex());
-                    RefreshPotionMenu();
-                }
-                else // если нажали по банке в инвентаре
-                {
-                    _lastPosPotion = potion.localPosition;
-
-                    for (int i = 1; i < _potionBar.childCount; i++)
-                    {
-                        if (_potionBar.GetChild(i).localPosition == Vector3.zero) // убираем активную банку в инвентарь
-                        {
-                            _potionBar.GetChild(i).localPosition = _lastPosPotion;
-                        }
-                        _potionBar.GetChild(i).gameObject.SetActive(false);
-                    }
-                    potion.gameObject.SetActive(true);
-                    potion.localPosition = Vector3.zero; // задаем активной ту банку, на которую нажали в инвентаре
-                    _pl.ActivePotion = potion.GetSiblingIndex() - 1;
-                }
+                PotionMenu(eventData.rawPointerPress.transform.parent);
             }
             else if (eventData.button == PointerEventData.InputButton.Right) // если нажали правой кнопкой мыши по окошку банок, открываем инвентарь
             {
@@ -243,6 +259,6 @@ namespace Game
         {
             _isPotionMenuActive = false;
             RefreshPotionMenu(); // скрываем меню банок если отвели мышку с открытого инвентаря
-        } 
+        }
     }
 }

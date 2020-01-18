@@ -10,7 +10,7 @@ namespace Game
         public PlayerController PlayerCont { get; private set; }
         public GameObject Player { get; private set; }
 
-        public EnemyModel[] Enemy { get; private set; }
+        public EnemyMelee[] EnemyMelee { get; private set; }
 
         public static Main Instance { get; private set; }
 
@@ -18,17 +18,22 @@ namespace Game
         {
             Instance = this;
             PlayerCont = new PlayerController();
-            Enemy = FindObjectsOfType<EnemyModel>();
             _updates.Add(PlayerCont);
+            _updates.Add(FindObjectOfType<Fog>());
         }
 
         void Start()
         {
             PlayerCont.Init();
-            foreach (EnemyModel enemy in Enemy)
-            {
+            Invoke(nameof(AfterGen), 0.1f);
+        }
 
-                _updates.Add(enemy);
+        private void AfterGen()
+        {
+            _updates.Add(GameObject.FindGameObjectWithTag("Boss").GetComponent<IOnUpdate>());
+            foreach (EnemyMelee em in FindObjectsOfType<EnemyMelee>())
+            {
+                _updates.Add(em);
             }
         }
 

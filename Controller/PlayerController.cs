@@ -26,6 +26,9 @@ namespace Game
 
         public void OnUpdate()
         {
+            if (_player.IsStunned) return;
+            if (_player.IsDeath) return;
+
             if (Input.GetMouseButtonDown(_leftClick))
             {
                 _player.MainAttack(1);

@@ -1,37 +1,37 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace Game
 {
     public abstract class PlayerSettings : MainAbs, IPotion
     {
+        private PlayerStats.Stats _stats;  // коллекция способностей
         private SpellManager _spellBook;  // коллекция способностей
         private ItemData _items;  // база итемов
         protected ActionBarUI _barUi;
         protected PlayerUI _playerUi;
-        protected Weapon _hammer;    // оружие
+        protected ExpBarUI _expBar;
 
         [SerializeField]
         protected List<GameObject> _effects = new List<GameObject>(); // лист различных вспомогательных эффектов
 
-        [SerializeField]
-        protected float _hp = 1000f; // скорость персонажа
-        [SerializeField]
-        protected float _speedRestHp = 2f; // скорость персонажа
-        [SerializeField]
-        protected float _energy = 100f; // скорость персонажа
-        [SerializeField]
-        protected float _speedRestEn = 4f; // скорость персонажа
-        [SerializeField]
-        protected float _speed = 4f; // скорость персонажа
 
+        protected float _hp; // хп персонажа
         protected float _maxHp;
+        protected float _energy; // количество энергии персонажа
+        protected float _maxEnergy;
+        protected float _experience;
+        protected float _expForLevel;
+        protected float _critChance;
+        protected float _speedRestEn; // скорость восстановления энергии
+        protected float _speed; // скорость персонажа
         protected float _speedRestEnDefault;
         protected float _basicSpeed; // сохранение базовой скорости персонажа
         protected float _defaultAttackCost; // стоимость тяжелой атаки
 
+        protected int _level;
+        protected int _points;
         protected int _activePotion;
         protected int _move = 0; // состояние передвижения
         protected int _attackType = 0; // состояние атаки
@@ -40,6 +40,8 @@ namespace Game
         protected int _spellLast = -1; // последний используемый каст
         protected int _spellNow = -1; // текущий каст
 
+        protected bool _isDeath;
+        protected bool _isStunned;
         protected bool _isRoll; // состояние кувырка
         protected bool _lockLook; // состояние слежения за курсором
         protected bool _isBuffOn; // состояние кувырка
@@ -55,7 +57,7 @@ namespace Game
         protected Vector3 _scaleUpStep; // шаг изменения размера персонажа
         protected Vector3 _buffScale; // измененный размер персонажа
 
-        private int[] potion = new int[3];
+        protected int[] potion = new int[3];
 
         public float Speed { get => _speed; set => _speed = value; }
         public SpellManager.Spell[] SpellBook { get => _spellBook.Spells; set => _spellBook.Spells = value; }
@@ -63,19 +65,32 @@ namespace Game
         public int[] Potion { get => potion; set => potion = value; }
         public int ActivePotion { get => _activePotion; set => _activePotion = value; }
         public int AttackType { get => _attackType; set => _attackType = value; }
+        public bool IsStunned { get => _isStunned; set => _isStunned = value; }
+        public float Hp { get => _hp; set => _hp = value; }
+        public float MaxHp { get => _maxHp; set => _maxHp = value; }
+        public float MaxEnergy { get => _maxEnergy; set => _maxEnergy = value; }
+        public float Crit { get => _critChance; set => _critChance = value; }
+        public bool IsDeath { get => _isDeath; set => _isDeath = value; }
+        public PlayerStats.Stats Stats { get => _stats; set => _stats = value; }
+        public float Energy { get => _energy; set => _energy = value; }
 
-        public SpellManager.Spell[] SpellBookDefault;
+        protected SpellManager.Spell[] SpellBookDefault;
 
         public new void Awake()
         {
             base.Awake();
-
-            _maxHp = _hp;
             _items = FindObjectOfType<ItemData>();
+            _stats = FindObjectOfType<PlayerStats>().Player;
             _spellBook = FindObjectOfType<SpellManager>();
             _barUi = FindObjectOfType<ActionBarUI>();
             _playerUi = FindObjectOfType<PlayerUI>();
+            _expBar = FindObjectOfType<ExpBarUI>();
 
+            LoadStats();
+
+            _level = 1;
+            _hp = _maxHp;
+            _energy = _maxEnergy;
             _playerUi.SpRestEnergy = _speedRestEn;
             _speedRestEnDefault = _speedRestEn;
 
@@ -95,17 +110,51 @@ namespace Game
                 SpellBook[i].id = i;
             }
             SpellBookDefault = new List<SpellManager.Spell>(SpellBook).ToArray();
+        }
 
-            _hammer = transform.GetComponentInChildren<Weapon>();
+        private void LoadStats()
+        {
+            _maxHp = _stats.hp;
+            _maxEnergy = _stats.energy;
+            _expForLevel = _stats.expForLevel;
+            _speedRestEn = _stats.energyPerSec;
+            _speed = _stats.speed;
+            _critChance = _stats.critChance;
+
+            for (int i = 0; i < SpellBook.Length; i++)
+            {
+                if(SpellBook[i].isAttack)
+                {
+                    if (_stats.dmgScalePhysical > 0) SpellBook[i].dmg += SpellBook[i].dmg * _stats.dmgScalePhysical / 100;
+                }
+                if (_stats.dmgScaleMagic > 0) SpellBook[i].dmg += SpellBook[i].dmg * _stats.dmgScaleMagic / 100;
+            }
+        }
+
+        private void LevelUp()
+        {
+            _level++;
+            _points++;
+            _maxHp += _maxHp * _stats.hpScaleLavel / 100;
+            _hp = _maxHp;
+            _playerUi.Health(_hp, _maxHp);
+        }
+        public void GetExp(float exp)
+        {
+            _experience += exp;
+            if (_expBar.GetExp(exp)) LevelUp();
         }
 
         public IEnumerator SpellBookDoDefault(int id, float time)
         {
             yield return new WaitForSeconds(time);
-            for (int i = 0; i < SpellBook.Length; i++)
+            if (id != 5)
             {
-                if (id == 1) SpellBook[i].cd = SpellBookDefault[i].cd;
-                else if (id == 2) SpellBook[i].dmg = SpellBookDefault[i].dmg;
+                for (int i = 0; i < SpellBook.Length; i++)
+                {
+                    if (id == 1) SpellBook[i].cd = SpellBookDefault[i].cd;
+                    else if (id == 2) SpellBook[i].dmg = SpellBookDefault[i].dmg;
+                }
             }
             if (id == 1)
             {
@@ -114,6 +163,10 @@ namespace Game
             else if (id == 2)
             {
                 _isPowerPot = false;
+            }
+            else if (id == 5)
+            {
+                SpellBook[SpellBook.Length - 2].dmg = SpellBookDefault[SpellBook.Length - 2].dmg;
             }
             StopCoroutine("SpellBookDoDefault");
 
@@ -133,10 +186,10 @@ namespace Game
 
         public void HealthPotion(int id, float heal) // хил банка
         {
-               _isHealPot = true;
-            _hp += (_maxHp * heal / 100);
-            if (_hp > 100) _hp = 100;
-            _playerUi.HealthPotion(_hp);
+            _isHealPot = true;
+            Hp += _maxHp * heal / 100;
+            if (Hp > _maxHp) Hp = _maxHp;
+            _playerUi.Health(_hp, _maxHp);
             RemotePotion(id);
         }
 
